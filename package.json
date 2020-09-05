@@ -1,0 +1,19 @@
+{
+    "name": "monorepo-speed-up",
+    "version": "1.0.0",
+    "main": "index.js",
+    "author": "sunny101618 <sunny101618@yahoo.com.hk>",
+    "license": "MIT",
+    "private": true,
+    "workspaces": [
+        "packages/*"
+    ],
+    "devDependencies": {
+        "lerna": "^3.22.1"
+    },
+    "scripts": {
+        "story": "lerna run story",
+        "build:lib": "lerna run libbuild",
+        "start": "lerna run start"
+      }
+}

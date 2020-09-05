@@ -1,0 +1,28 @@
+{
+    "name": "@sunny/storybook",
+    "version": "1.0.0",
+    "main": "./lib/index.js",
+    "module": "./lib-esm/index.js",
+    "types": "./lib/index.d.ts",
+    "license": "MIT",
+    "peerDependencies": {
+        "react": "^16.13.1",
+        "react-dom": "^16.13.1"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.11.4",
+        "@storybook/react": "^6.0.16",
+        "@types/storybook__react": "^5.2.1",
+        "awesome-typescript-loader": "^5.2.1",
+        "babel-loader": "^8.1.0",
+        "node-sass": "^4.14.1",
+        "sass-loader": "^10.0.1",
+        "source-map-loader": "^1.0.2",
+        "style-loader": "^1.2.1",
+        "typescript": "^4.0.2"
+    },
+    "scripts": {
+        "story": "start-storybook",
+        "libbuild": "tsc && tsc --build tsconfig.esm.json"
+    }
+}
