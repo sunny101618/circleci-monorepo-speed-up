@@ -64,6 +64,7 @@ orbs:
          yarn build:lib
          yarn workspace @sunny/<< parameters.web_app_name >> test
      - steps: << parameters.posttest >>
+     - *save_yarn_cache
    build:
     parameters:
      web_app_name:
@@ -122,6 +123,7 @@ workflows:
    - web_app/build:
       name: build_app
       web_app_name: app
+      requires: [test_app]
    - web_app/deploy:
       name: deploy_app
       web_app_name: app
@@ -136,6 +138,7 @@ workflows:
    - web_app/build:
       name: build_app2
       web_app_name: app2
+      requires: [test_app2]
    - web_app/deploy:
       name: deploy_app2
       web_app_name: app2
@@ -150,6 +153,7 @@ workflows:
    - web_app/build:
       name: build_app3
       web_app_name: app3
+      requires: [test_app3]
    - web_app/deploy:
       name: deploy_app3
       web_app_name: app3
