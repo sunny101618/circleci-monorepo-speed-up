@@ -1,156 +1,225 @@
 version: 2.1
 
+parameters:
+  # This parameter is used to trigger the main workflow
+  main:
+    type: boolean
+    default: true
+    # A parameter per project
+  app:
+    type: boolean
+    default: false
+  app2:
+    type: boolean
+    default: false
+  app3:
+    type: boolean
+    default: false
+  storybook:
+    type: boolean
+    default: false
+
 orbs:
- web_app:
-  aliases:
-   - &restore_yarn_cache
-     restore_cache:
-      keys:
-       - v1-yarn-{{ checksum "yarn.lock" }}
-       - v1-yarn-
-   - &save_yarn_cache
-     save_cache:
-      key: v1-yarn-{{ checksum "yarn.lock" }}
-      paths:
-       - ../.cache/yarn
-       - ./node_modules
-       - ./packages/*/node_modules
-   - &run_yarn
-     run:
-      name: Install Dependencies
-      command: yarn --frozen-locakfile
-   - &persist_workspace
-     persist_to_workspace:
-      root: ~/repo
-      paths: ./*
-   - &attach_repo_workspace
-     attach_workspace: { at: ~/repo }
+  web_app:
+    aliases:
+      - &restore_yarn_cache
+        restore_cache:
+          keys:
+            - v2-yarn-{{ checksum "yarn.lock" }}
+            - v2-yarn-
+      - &save_yarn_cache
+        save_cache:
+          key: v2-yarn-{{ checksum "yarn.lock" }}
+          paths:
+            - ../.cache/yarn
+            - ./node_modules
+            - ./packages/*/node_modules
+      - &run_yarn
+        run:
+          name: Install Dependencies
+          command: yarn --frozen-locakfile
+      - &persist_repo_workspace
+        persist_to_workspace:
+          root: /mnt/ramdisk/repo
+          paths:
+            - ./*
+      - &attach_repo_workspace
+        attach_workspace: { at: /mnt/ramdisk/repo }
+      - &persist_build_workspace
+        persist_to_workspace:
+          root: /mnt/ramdisk/repo
+          paths:
+            - ./packages/*/build
+      - &attach_build_workspace
+        attach_workspace: { at: /mnt/ramdisk/repo }
+    executors:
+      node_executor:
+        docker:
+          - image: cimg/node:12.16
+        working_directory: /mnt/ramdisk/repo
 
-  executors:
-   node_executor:
-    docker:
-     - image: circleci/node:latest-browsers
-    working_directory: ~/repo
-
-  commands:
-   determine_workflow:
-    steps:
-     - run:
-        name: Determine Workflows
-        command: chmod +x .circleci/circle_trigger.sh && .circleci/circle_trigger.sh
-  jobs:
-   test:
-    parameters:
-     web_app_name:
-      description: "Name of the Web App"
-      type: string
-     pretest:
-      description: "Steps that will be executed after dependencies are installed, but before the test begins"
-      type: steps
-      default: []
-     posttest:
-      description: "Steps that will be executed after successful test"
-      type: steps
-      default: []
-    executor: node_executor
-    steps:
-     - checkout
-     - *restore_yarn_cache
-     - *run_yarn
-     - steps: << parameters.pretest >>
-     - run:
-        name: Build << parameters.web_app_name >>
-        command: |
-         yarn build:lib
-         yarn workspace @sunny/<< parameters.web_app_name >> test
-     - steps: << parameters.posttest >>
-   build:
-    parameters:
-     web_app_name:
-      description: "Name of the Web App"
-      type: string
-     prebuild:
-      description: "Steps that will be executed after dependencies are installed, but before the build begins"
-      type: steps
-      default: []
-     postbuild:
-      description: "Steps that will be executed after successful build"
-      type: steps
-      default: []
-    executor: node_executor
-    steps:
-     - checkout
-     - *restore_yarn_cache
-     - *run_yarn
-     - steps: << parameters.prebuild >>
-     - run:
-        name: Build << parameters.web_app_name >>
-        command: |
-          yarn build:lib
-          yarn workspace @sunny/<< parameters.web_app_name >> build
-     - steps: << parameters.postbuild >>
-     - *persist_workspace
-   deploy:
-    parameters:
-     web_app_name:
-      description: "Name of the Web App"
-      type: string
-     predeploy:
-      description: "Steps that will be executed after dependencies are installed, but before the deploy begins"
-      type: steps
-      default: []
-     postdeploy:
-      description: "Steps that will be executed after successful deploy"
-      type: steps
-      default: []
-    executor: node_executor
-    steps:
-     - *attach_repo_workspace
-     - steps: << parameters.predeploy >>
-     - run:
-        name: Build << parameters.web_app_name >>
-        command: echo "Deploying << parameters.web_app_name >> ..."
-     - steps: << parameters.postdeploy >>
+    commands:
+      determine_workflow:
+        steps:
+          - run:
+              name: Determine Workflows
+              command: chmod +x .circleci/circle_trigger.sh && .circleci/circle_trigger.sh
+      modclean:
+        steps:
+          - run:
+              name: Prune node module
+              command: |
+                npx modclean -r --ignore="makefile*"
+    jobs:
+      setup:
+        parameters:
+          presetup:
+            description: "Steps that will be before setup"
+            type: steps
+            default: []
+          postsetup:
+            description: "Steps that will be executed after successful setup"
+            type: steps
+            default: []
+        executor: node_executor
+        resource_class: medium
+        steps:
+          - checkout
+          - steps: << parameters.presetup >>
+          - *restore_yarn_cache
+          - *run_yarn
+          - modclean
+          - *save_yarn_cache
+          - steps: << parameters.postsetup >>
+          - *persist_repo_workspace
+      test:
+        parameters:
+          web_app_name:
+            description: "Name of the Web App"
+            type: string
+          pretest:
+            description: "Steps that will be executed after dependencies are installed, but before the test begins"
+            type: steps
+            default: []
+          posttest:
+            description: "Steps that will be executed after successful test"
+            type: steps
+            default: []
+        executor: node_executor
+        steps:
+          - *attach_repo_workspace
+          - steps: << parameters.pretest >>
+          - run:
+              name: Build << parameters.web_app_name >>
+              command: |
+                yarn build:lib
+                yarn workspace @sunny/<< parameters.web_app_name >> test
+          - steps: << parameters.posttest >>
+      build:
+        parameters:
+          web_app_name:
+            description: "Name of the Web App"
+            type: string
+          prebuild:
+            description: "Steps that will be executed after dependencies are installed, but before the build begins"
+            type: steps
+            default: []
+          postbuild:
+            description: "Steps that will be executed after successful build"
+            type: steps
+            default: []
+        executor: node_executor
+        steps:
+          - *attach_repo_workspace
+          - steps: << parameters.prebuild >>
+          - run:
+              name: Build << parameters.web_app_name >>
+              command: |
+                yarn build:lib
+                yarn workspace @sunny/<< parameters.web_app_name >> build
+          - steps: << parameters.postbuild >>
+          - *persist_build_workspace
+      deploy:
+        parameters:
+          web_app_name:
+            description: "Name of the Web App"
+            type: string
+          predeploy:
+            description: "Steps that will be executed after dependencies are installed, but before the deploy begins"
+            type: steps
+            default: []
+          postdeploy:
+            description: "Steps that will be executed after successful deploy"
+            type: steps
+            default: []
+        executor: node_executor
+        steps:
+          - *attach_repo_workspace
+          - steps: << parameters.predeploy >>
+          - run:
+              name: Build << parameters.web_app_name >>
+              command: echo "Deploying << parameters.web_app_name >> ..."
+          - steps: << parameters.postdeploy >>
 
 workflows:
- version: 2
- app:
-  jobs:
-   - web_app/test:
-      name: test_app
-      web_app_name: app
-   - web_app/build:
-      name: build_app
-      web_app_name: app
-   - web_app/deploy:
-      name: deploy_app
-      web_app_name: app
-      requires: [build_app]
+  version: 2
+  main:
+    when: << pipeline.parameters.main >>
+    jobs:
+      - web_app/setup:
+          name: setup
+          postsetup:
+            - web_app/determine_workflow
+  app:
+    when: << pipeline.parameters.app >>
+    jobs:
+      - web_app/setup:
+          name: setup_app
+      - web_app/test:
+          name: test_app
+          web_app_name: app
+          requires: [setup_app]
+      - web_app/build:
+          name: build_app
+          web_app_name: app
+          requires: [setup_app]
+      - web_app/deploy:
+          name: deploy_app
+          web_app_name: app
+          requires: [build_app]
 
- app2:
-  jobs:
-   # Always
-   - web_app/test:
-      name: test_app2
-      web_app_name: app2
-   - web_app/build:
-      name: build_app2
-      web_app_name: app2
-   - web_app/deploy:
-      name: deploy_app2
-      web_app_name: app2
-      requires: [build_app2]
+  app2:
+    when: << pipeline.parameters.app2 >>
+    jobs:
+      - web_app/setup:
+          name: setup_app2
+      - web_app/test:
+          name: test_app2
+          web_app_name: app2
+          requires: [setup_app2]
+      - web_app/build:
+          name: build_app2
+          web_app_name: app2
+          requires: [setup_app2]
+      - web_app/deploy:
+          name: deploy_app2
+          web_app_name: app2
+          requires: [build_app2]
 
- app3:
-  jobs:
-   # Always
-   - web_app/test:
-      name: test_app3
-      web_app_name: app3
-   - web_app/build:
-      name: build_app3
-      web_app_name: app3
-   - web_app/deploy:
-      name: deploy_app3
-      web_app_name: app3
-      requires: [build_app3]
+  app3:
+    when: << pipeline.parameters.app3 >>
+    jobs:
+      - web_app/setup:
+          name: setup_app3
+      - web_app/test:
+          name: test_app3
+          web_app_name: app3
+          requires: [setup_app3]
+      - web_app/build:
+          name: build_app3
+          web_app_name: app3
+          requires: [setup_app3]
+      - web_app/deploy:
+          name: deploy_app3
+          web_app_name: app3
+          requires: [build_app3]
