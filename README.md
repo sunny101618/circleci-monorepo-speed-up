@@ -9,7 +9,6 @@
     - [Docker RAM Disk](#Docker-RAM-disk)
 - [Improvement Result](#improvement-result)
 - [Supplementary Information](#supplementary-information)
-    - [Directory structure on running CircleCI docker](#directory-structure-on-running-circleci-docker)
     - [Create a new package](#create-a-new-package)
 - [Reference](#reference)
 
@@ -143,8 +142,6 @@ Compared with three existing tools including [node-prune](https://github.com/tj/
 - Pro: More flexible in fine-tuning deleting file preference
 - Con: Take around (10 - 20 seconds) to complete the pruning process
 
-
-
 **Yarn Autoclean**
 
 - Con: slow and low-efficiency
@@ -255,22 +252,26 @@ executors:
 
 ## Improvement Result
 
+Take two samples, one is before any measurement (#6) and one is after any measurement(#8)
+
+https://app.circleci.com/pipelines/github/sunny101618/circleci-monorepo-speed-up
+
+In term of total consumed time, reduce the time from 11mins 08 secs to 9 mins 7 secs, which is faster than **19%** compared to without any measurement.
+
+![image-20200905162057637](README.assets/image-20200905162057637.png)
+
+In term of duration, 
+
+- [#6)(Before): 5 min 10s (app2 workflow) = 5 mins 10 secs
+- [#8] (After): 4 min 47s (main workflow) + 4 min 47s (app2 workflow) = 4mins47s
+
+That can help the programmer to wait less **23 secs** to each PR CI request.
+
+ In conclusion, the commerical comapny's monorepo should has more automated test and automated build in CI. Cooperating with these five techniques, you may help the company to save more money and the developers' time.
+
 ---
 ## Supplementary Information
 
-### Directory structure on running CircleCI docker
-```sh
-/mnt/ramdisk                # RAM Disks - Temporary File Storage Paradigm
-├── .cache                  # Default yarn's global cache
-    ├── yarn                # Include in save_yarn_cache alias                
-└── repo                    # Checkout bowtie-web code and include in persist_repo_workspac 
-    ├── app
-      ├── node_modules      # Include in save_yarn_cache alias 
-      ├── build             # Include in persist_build_workspace alias
-    ├── ...
-    ├── ...
-    └── node_modules        # Include in save_yarn_cache alias   
-```
 ### Create a new package
 Once you add a new application / component to this monorepo you have to do the following steps:
 
